@@ -1,26 +1,24 @@
 package Client;
 
 import java.awt.event.*;
-import java.io.ObjectInputStream;
-import java.io.ObjectOutputStream;
+import java.io.IOException;
 import java.net.Socket;
 
-
-//import java.io.*;
+import Shared.ChatMessage;
+import Shared.TcpConnection;
 
 public class Client implements ActionListener {
-
 	
-	private String m_name = null;
+	private static String m_name = null;
 	private final ChatGUI m_GUI;
-	private ServerConnection m_connection = null;
+	private static TcpConnection m_connection = null;
+	private static ChatMessage chatMsg = null;
 
 	public static void main(String[] args) {
 		if (args.length < 3) {
 			System.err.println("Usage: java Client serverhostname serverportnumber username");
 			System.exit(-1);
 		}
-
 		try {
 			Client instance = new Client(args[2]);
 			instance.connectToServer(args[0], Integer.parseInt(args[1]));
@@ -30,7 +28,7 @@ public class Client implements ActionListener {
 		}
 	}
 
-	private Client(String userName) {
+	public Client(String userName) {
 		m_name = userName;
 
 		// Start up GUI (runs in its own thread)
@@ -39,8 +37,17 @@ public class Client implements ActionListener {
 
 	private void connectToServer(String hostName, int port) {
 		// Create a new server connection
-		m_connection = new ServerConnection(hostName, port);
-		if (m_connection.handshake(m_name)) {
+		try {
+			m_connection = new TcpConnection(hostName, port, m_name);
+			String handShake_name = m_name;
+			String handShake_type = "H";
+			chatMsg = new ChatMessage(handShake_type, handShake_name);
+			m_connection.sendMessage(chatMsg);
+		} catch (IOException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		}
+		if (m_connection.isRun()) {
 			listenForServerMessages();
 		} else {
 			System.err.println("Unable to connect to server");
@@ -48,22 +55,36 @@ public class Client implements ActionListener {
 	}
 
 	private void listenForServerMessages() {
-		// Use the code below once m_connection.receiveChatMessage() has been
-		// implemented properly.
-		// do {
-		// m_GUI.displayMessage(m_connection.receiveChatMessage());
-		// } while(true);
+		do {
+			try {
+				m_GUI.displayMessage(m_connection.readObject().getMessage());
+			} catch (ClassNotFoundException | IOException e) {
+				// TODO Auto-generated catch block
+				e.printStackTrace();
+			}
+		} while(true);
 	}
 
-	// Sole ActionListener method; acts as a callback from GUI when user hits
-	// enter in input field
 	@Override
 	public void actionPerformed(ActionEvent e) {
-		// Since the only possible event is a carriage return in the text input
-		// field,
-		// the text in the chat input field can now be sent to the server.
+		String msg = m_GUI.getInput();
+		String[] splitMsg = msg.split(" ", 1);
+		String msgType = splitMsg[0];
+		String message = splitMsg[1];
 		
-		m_connection.sendChatMessage(m_GUI.getInput());
+		chatMsg = new ChatMessage(msgType, message);
+		
+		try {
+			m_connection.sendMessage(chatMsg);
+		} catch (IOException e1) {
+			e1.printStackTrace();
+		}
 		m_GUI.clearInput();
+	}
+	public String getName(String name){
+		return m_name;
+	}
+	public boolean hasName(String testName) {
+		return testName.equals(m_name);
 	}
 }

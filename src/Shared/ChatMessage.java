@@ -6,7 +6,7 @@ public class ChatMessage {
 	
 	private JSONObject obj = new JSONObject();
 	
-	ChatMessage(String msgType, String message){
+	public ChatMessage(String msgType, String message){
 		obj.put("message", message);
 		obj.put("msgType", msgType);
 		obj.put("time", System.currentTimeMillis());

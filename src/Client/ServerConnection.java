@@ -4,110 +4,103 @@
  */
 package Client;
 
-import java.io.DataInputStream;
-import java.io.DataOutputStream;
 import java.io.IOException;
-import java.io.InputStream;
-import java.io.ObjectInputStream;
-import java.io.ObjectOutputStream;
-import java.io.OutputStream;
+import java.net.DatagramPacket;
+import java.net.DatagramSocket;
 import java.net.InetAddress;
-import java.net.Socket;
+import java.net.SocketException;
 import java.net.UnknownHostException;
+import java.util.Random;
+
+import Shared.TcpConnection;
 
 /**
  *
  * @author brom
  */
 public class ServerConnection {
-	
-	private ObjectInputStream sInput;
-	private ObjectOutputStream sOutput;
-	private Socket socket;
 
+	private TcpConnection m_socket = null;
 	private InetAddress m_serverAddress = null;
 	private int m_serverPort = -1;
+	private final static int PACKETSIZE = 1440;
+
+
 
 	public ServerConnection(String hostName, int port) {
 		m_serverPort = port;
 		try {
 			m_serverAddress = InetAddress.getByName(hostName);
-		} catch (UnknownHostException e) {
-			// TODO Auto-generated catch block
+		} catch (UnknownHostException e1) {
+			e1.printStackTrace();
+		}
+		try {
+			m_socket = new DatagramSocket();
+		} catch (SocketException e) {
 			e.printStackTrace();
 		}
-
 	}
 
 	public boolean handshake(String name) {
-		
+		String msg = name + " H";
+		byte[] byteName = msg.getBytes();
+		DatagramPacket packet = new DatagramPacket(byteName, byteName.length, m_serverAddress, m_serverPort);
 		try {
-			socket = new Socket(m_serverAddress, m_serverPort);
+			m_socket.send(packet);
 		} catch (IOException e) {
-			System.out.println("Error connection to server: "+e);
-			return false;
+			e.printStackTrace();
 		}
-		
-		String msg = "Connection accepted "+ socket.getInetAddress() + ":" + socket.getPort();
-		event(msg);
-		try{
-		sInput = new ObjectInputStream(socket.getInputStream());
-		sOutput = new ObjectOutputStream(socket.getOutputStream());
+		packet.setData(new byte[PACKETSIZE]);
+		try {
+			m_socket.receive(packet);
+		} catch (IOException e) {
+			e.printStackTrace();
 		}
-		catch(IOException e){
-			event("Exception creating input/output: "+e);
-			return false;
-		}
-		new RecieveChatMessage().start();
-		// TODO:
-		// * marshal connection message containing user name
-		// * send message via socket
-		// * receive response message from server
-		// * unmarshal response message to determine whether connection was
-		// successful
-		// * return false if connection failed (e.g., if user name was taken)
+		String message = new String(packet.getData());
+		System.out.println(message);
+
 		return true;
 	}
 	
 	public String receiveChatMessage() {
-		// TODO:
-		// * receive message from server
-		// * unmarshal message if necessary
-
-		// Note that the main thread can block on receive here without
-		// problems, since the GUI runs in a separate thread
-
-		// Update to return message contents
-		return "";
+		DatagramPacket packet = new DatagramPacket(new byte[PACKETSIZE], PACKETSIZE);
+		try {
+			
+			m_socket.receive(packet);
+		} catch (IOException e) {
+			e.printStackTrace();
+		}
+		String message = new String(packet.getData(), packet.getOffset(), packet.getLength());
+		
+		return message;
 	}
 
 	public void sendChatMessage(String message) {
-		try {
-			Socket client = new Socket(m_serverAddress, m_serverPort);
-			
-			
-
-			OutputStream outToServer = client.getOutputStream();
-
-			DataOutputStream out = new DataOutputStream(outToServer);
-
-			out.writeUTF(message);
-
-			InputStream inFromServer = client.getInputStream();
-
-			DataInputStream in = new DataInputStream(inFromServer);
-
-			in.readUTF();
-
-			client.close();
-		} catch (IOException e) {
-			// TODO Auto-generated catch block
-			e.printStackTrace();
-		}
-
-	}
-	class ListenFromServer() extends Thread{
+		Random generator = new Random();
+		double failure = generator.nextDouble();
 		
+		byte[] byteMessage = message.getBytes();
+		DatagramPacket packet = new DatagramPacket(byteMessage, byteMessage.length, m_serverAddress, m_serverPort);
+		if (failure > TRANSMISSION_FAILURE_RATE) {
+			
+			try {
+				m_socket.send(packet);
+			} catch (IOException e) {
+				System.out.println("Connection closed.");
+			}
+
+		} else {
+			// Message got lost
+		}
 	}
 	
+	// Metoden som används för att stänga uppkopplingen på socket
+	public void disconnect(){
+		m_socket.close();
+	}
+	
+	public boolean isConnected() {
+		return m_socket.isConnected();
+	}
+
 }
