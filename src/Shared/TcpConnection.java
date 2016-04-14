@@ -5,7 +5,6 @@ import java.io.ObjectInputStream;
 import java.io.ObjectOutputStream;
 import java.net.InetAddress;
 import java.net.Socket;
-import java.util.Stack;
 import java.util.concurrent.Semaphore;
 
 
@@ -20,9 +19,10 @@ public class TcpConnection extends Thread {
 	private boolean _remove = false;
 	private Semaphore sem = new Semaphore(0);
 	private String _name;
+	private int ping = 1;
 	
 	
-	public TcpConnection(String adr, int port, String name) throws IOException {
+	public TcpConnection(InetAddress adr, int port, String name) throws IOException {
 		_socket = new Socket(adr, port);
 		_name = name;
 		_out = new ObjectOutputStream(_socket.getOutputStream());
@@ -31,7 +31,6 @@ public class TcpConnection extends Thread {
 	
 	public TcpConnection(Socket socket) throws IOException {
 		_socket = socket;
-		
 		_out = new ObjectOutputStream(_socket.getOutputStream());
 		_in = new ObjectInputStream(_socket.getInputStream());
 	}
@@ -40,7 +39,9 @@ public class TcpConnection extends Thread {
 		_out.writeObject(msg);
 	}
 	
-	
+	public int getPing(){
+		return ping;
+	}
 	public synchronized boolean gotMessage() {
 		return _gotMessage;
 	}
@@ -81,10 +82,10 @@ public class TcpConnection extends Thread {
 			try {
 				msg = (ChatMessage) _in.readObject();
 				_gotMessage = true;
-				if(msg.getMsgType().equals("close")){
-					_run = false;
-					_socket.close();
-				}
+//				if(msg.getMsgType().equals("close")){
+//					_run = false;
+//					_socket.close();
+//				}
 				try {
 					sem.acquire();
 				} catch (InterruptedException e) {
@@ -115,5 +116,14 @@ public class TcpConnection extends Thread {
 				}
 			}
 		}
+	}
+	public void setUsername(String name){
+		_name = name;
+	}
+	public void removePing(){
+		ping = 0;
+	}
+	public void ping(){
+		ping = 1;
 	}
 }
